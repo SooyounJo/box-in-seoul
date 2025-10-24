@@ -10,19 +10,9 @@ import ShaderBubble6 from '../components/ver1/6'
 import ShaderBubble7 from '../components/ver1/7'
 import ShaderBubble8 from '../components/ver1/8'
 import ShaderBubble9 from '../components/ver1/9'
-import LG1 from '../components/ver3/lg1'
-import LG2 from '../components/ver3/lg2'
-import LG3 from '../components/ver3/lg3'
-import LG4 from '../components/ver3/lg4'
-import LG5 from '../components/ver3/lg5'
-import LG6 from '../components/ver3/lg6'
-import LG7 from '../components/ver4/lg7'
-import LG8 from '../components/ver4/lg8'
-import LG9 from '../components/ver4/lg9'
 import Type1 from '../components/ver2/type1'
 import Type2 from '../components/ver2/type2'
 import Type3 from '../components/ver2/type3'
-// import ShaderBubble10 from '../components/ver1/10'
 import ShaderBubble22 from '../components/ver1/2.2'
 import { useRouter } from 'next/router'
 
@@ -41,10 +31,6 @@ export default function Home() {
       setSelectedStyle(1)
     } else if (version === 'ver2') {
       setSelectedStyle('type1')
-    } else if (version === 'ver3') {
-      setSelectedStyle('lg1')
-    } else if (version === 'ver4') {
-      setSelectedStyle('lg7')
     }
     // 6, 7번 상태 리셋
     setIsActive6(false)
@@ -71,15 +57,12 @@ export default function Home() {
     }
   }, [router.query.style])
 
-
-
   return (
     <>
       <Head>
         <title>Shader Bubble</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-
 
       <div className="app-container">
         {/* 버전 선택 버튼 (좌측 위) */}
@@ -102,18 +85,6 @@ export default function Home() {
           >
             Mobile
           </button>
-          <button 
-            className={`version-btn ${selectedVersion === 'ver3' ? 'active' : ''}`}
-            onClick={() => handleVersionChange('ver3')}
-          >
-            Ver.3
-          </button>
-          <button 
-            className={`version-btn ${selectedVersion === 'ver4' ? 'active' : ''}`}
-            onClick={() => handleVersionChange('ver4')}
-          >
-            Ver.4
-          </button>
         </div>
 
         {/* 3D Canvas */}
@@ -133,23 +104,14 @@ export default function Home() {
              selectedStyle === 3 ? <ShaderBubble3 /> : 
              selectedStyle === 4 ? <ShaderBubble4 /> : 
              selectedStyle === 5 ? <ShaderBubble5 /> : 
-                 selectedStyle === 6 ? <ShaderBubble6 isActive={isActive6} /> :
-                 selectedStyle === 7 ? <ShaderBubble7 isActive={isActive7} /> :
-                 selectedStyle === 8 ? <ShaderBubble8 /> :
-                 selectedStyle === 9 ? <ShaderBubble9 /> :
-                 selectedStyle === 'type1' ? <Type1 /> :
-                 selectedStyle === 'type2' ? <Type2 /> :
-                 selectedStyle === 'type3' ? <Type3 /> :
-                 selectedStyle === 'lg1' ? <LG1 /> :
-                 selectedStyle === 'lg2' ? <LG2 /> :
-                 selectedStyle === 'lg3' ? <LG3 /> :
-                 selectedStyle === 'lg4' ? <LG4 /> :
-                 selectedStyle === 'lg5' ? <LG5 /> :
-                 selectedStyle === 'lg6' ? <LG6 /> :
-                 selectedStyle === 'lg7' ? <LG7 /> :
-                 selectedStyle === 'lg8' ? <LG8 /> :
-                 selectedStyle === 'lg9' ? <LG9 /> :
-                 <ShaderBubble />}
+             selectedStyle === 6 ? <ShaderBubble6 isActive={isActive6} /> :
+             selectedStyle === 7 ? <ShaderBubble7 isActive={isActive7} /> :
+             selectedStyle === 8 ? <ShaderBubble8 /> :
+             selectedStyle === 9 ? <ShaderBubble9 /> :
+             selectedStyle === 'type1' ? <Type1 /> :
+             selectedStyle === 'type2' ? <Type2 /> :
+             selectedStyle === 'type3' ? <Type3 /> :
+             <ShaderBubble />}
           </Canvas>
           
           {/* 버튼별 제목 표시 - ver1만 */}
@@ -276,34 +238,6 @@ export default function Home() {
             ))}
           </div>
         )}
-
-        {selectedVersion === 'ver3' && (
-          <div className="version-switcher-bottom ver3-buttons" role="navigation" aria-label="Style Switcher ver3">
-            {['lg1', 'lg2', 'lg3', 'lg4', 'lg5', 'lg6'].map((lg) => (
-              <button
-                key={lg}
-                className={`ver-button ${selectedStyle === lg ? 'active' : ''}`}
-                onClick={() => handleStyleChange(lg)}
-              >
-                {lg.replace('lg', 'LG')}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {selectedVersion === 'ver4' && (
-          <div className="version-switcher-bottom ver4-buttons" role="navigation" aria-label="Style Switcher ver4">
-            {['lg7', 'lg8', 'lg9'].map((lg) => (
-              <button
-                key={lg}
-                className={`ver-button ${selectedStyle === lg ? 'active' : ''}`}
-                onClick={() => handleStyleChange(lg)}
-              >
-                {lg.replace('lg', 'LG')}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <style jsx>{`
@@ -386,7 +320,6 @@ export default function Home() {
           transition: all 0.3s ease;
         }
 
-
         .activate-btn.active {
           background: #000000;
           border-radius: 20px;
@@ -447,35 +380,6 @@ export default function Home() {
           background: #32cd32 !important;
           box-shadow: 0 0 15px rgba(50, 205, 50, 0.7);
         }
-
-        .ver3-buttons .ver-button {
-          background: #ffd700 !important;
-          color: #000000 !important;
-        }
-
-        .ver3-buttons .ver-button:hover {
-          background: #ffed4e !important;
-        }
-
-        .ver3-buttons .ver-button.active {
-          background: #ff8c00 !important;
-          box-shadow: 0 0 15px rgba(255, 140, 0, 0.7);
-        }
-
-        .ver4-buttons .ver-button {
-          background: #ff69b4 !important;
-          color: #ffffff !important;
-        }
-
-        .ver4-buttons .ver-button:hover {
-          background: #ff1493 !important;
-        }
-
-        .ver4-buttons .ver-button.active {
-          background: #dc143c !important;
-          box-shadow: 0 0 15px rgba(220, 20, 60, 0.7);
-        }
-
 
         .title-overlay {
           position: absolute;

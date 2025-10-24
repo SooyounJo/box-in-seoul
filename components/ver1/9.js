@@ -1,9 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 export default function AgenticBubble({ styleType = 6, cameraMode = 'default' }) {
-  const [zoomLevel, setZoomLevel] = useState(1.8)
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0 },
@@ -48,32 +47,95 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         vec3 N=normalize(vNormal); vec3 L=normalize(lightDir); vec2 p=vUv-0.5; float r=length(p);
         float breathing=breathingMotion(time); r=r*(1.0+breathing*0.3);
         float topness=clamp(dot(N,normalize(ringDir))*0.5+0.5,0.0,1.0);
-        vec3 peach=vec3(1.00,0.90,0.72); vec3 pink=vec3(1.00,0.70,0.90); vec3 purple=vec3(0.82,0.68,1.00);
-        vec3 base=mix(pink,peach,clamp(0.5+0.5*topness,0.0,1.0)); base=mix(base,purple,smoothstep(0.0,0.35,1.0-topness));
-        float loopSec=10.0; float loopT=mod(time,loopSec)/loopSec; float phase=-loopT;
-        float ripple1=noise(vUv*3.0+time*0.5)*0.05; float ripple2=noise(vUv*5.0+time*0.3)*0.025; float ripple3=noise(vUv*7.0+time*0.7)*0.015; float totalRipple=ripple1+ripple2+ripple3;
-        float elastic1=elasticWave(topness*2.0+time*0.4,3.0,0.08); float elastic2=elasticWave(topness*3.0+time*0.6,2.0,0.04); float totalElastic=elastic1+elastic2;
-        float blurAmount=0.01; float f1=topness*1.8+phase+totalRipple+totalElastic; float f2=topness*1.8+phase+blurAmount+totalRipple*0.8+totalElastic*0.6; float f3=topness*1.8+phase+(blurAmount*1.5)+totalRipple*0.6+totalElastic*0.4;
-        float perturb=0.01*n2(vUv*1.5+time*0.05); vec3 w1=bandWeights(f1+perturb); vec3 w2=bandWeights(f2+perturb*0.8); vec3 w3=bandWeights(f3+perturb*0.6);
-        float wobble1=0.997+0.001*n2(vUv*2.2+time*0.06); float wobble2=0.997+0.001*n2(vUv*2.2+time*0.06+1.7); float wobble3=0.997+0.001*n2(vUv*2.2+time*0.06+3.1); w1*=wobble1; w2*=wobble2; w3*=wobble3;
-        vec3 cY=vec3(0.80,0.40,0.70); vec3 cP=vec3(0.85,0.20,0.75); vec3 cU=vec3(0.90,0.50,0.80);
-        w1*=vec3(0.18,1.0,0.95); w2*=vec3(0.18,1.0,0.95); w3*=vec3(0.18,1.0,0.95);
-        vec3 flowColor1=cY*w1.x + cP*w1.y + cU*w1.z; vec3 flowColor2=cY*w2.x + cP*w2.y + cU*w2.z; vec3 flowColor3=cY*w3.x + cP*w3.y + cU*w3.z; vec3 flowColor=(0.5*flowColor1 + 0.35*flowColor2 + 0.15*flowColor3);
-        float mask1=clamp(w1.x+w1.y+w1.z,0.0,1.0); float mask2=clamp(w2.x+w2.y+w2.z,0.0,1.0); float mask3=clamp(w3.x+w3.y+w3.z,0.0,1.0); float flowMaskAvg=clamp((0.5*mask1 + 0.35*mask2 + 0.15*mask3),0.0,1.0);
-        vec3 lit=base; lit=mix(lit,flowColor,flowMaskAvg*0.4);
-        vec3 rippleColor=vec3(0.8,0.4,0.6)*totalRipple*0.2; vec3 elasticColor=vec3(0.8,0.3,0.7)*totalElastic*0.15; lit+=rippleColor+elasticColor;
-        vec3 V=vec3(0.0,0.0,1.0); float fres=pow(1.0 - max(dot(N,V),0.0),2.6); vec3 rimGlow=vec3(0.8,0.3,0.7)*fres*0.3; float softHalo=smoothstep(0.34,0.10,r)*0.08; vec3 glow=rimGlow + vec3(0.8,0.4,0.8)*softHalo; lit+=glow;
-        lit+=vec3(0.8,0.2,0.6)*(1.0-topness)*0.1; vec3 gray=vec3(dot(lit,vec3(0.299,0.587,0.114)));
-        float loopPhase = 0.5 + 0.5 * sin(6.28318530718 * time / 7.0);
-        float sat = 1.0 + 0.85 * loopPhase;
-        lit = mix(gray, lit, sat);
-        float brightness = 1.0 + 0.14 * loopPhase;
-        lit *= brightness;
-        float contrast = 1.0 + 0.32 * loopPhase;
-        lit = (lit - 0.5) * contrast + 0.5;
-        lit=pow(lit,vec3(0.9)); lit*=1.05; lit=mix(lit,vec3(1.0),0.02); lit=clamp(lit,0.0,1.0);
-        float edgeFeather=smoothstep(0.52,0.36,r); float alpha=0.80*edgeFeather + fres*0.10; alpha=clamp(alpha,0.0,0.96);
-        gl_FragColor=vec4(lit,alpha);
+        
+        // CSS 코드의 정확한 컬러와 그라디언트 적용
+        // linear-gradient(180deg, #361EAE 0.96%, #FF9CD4 79.81%, #FFE6C3 98.08%)
+        
+        // 하단: #361EAE (0.96% 위치)
+        vec3 bottomColor = vec3(0.211, 0.118, 0.682); // #361EAE
+        
+        // 중간: #FF9CD4 (79.81% 위치)  
+        vec3 midColor = vec3(1.0, 0.612, 0.831); // #FF9CD4
+        
+        // 상단: #FFE6C3 (98.08% 위치)
+        vec3 topColor = vec3(1.0, 0.902, 0.765); // #FFE6C3
+        
+        // 라이너 그라디언트 (Y 좌표 기반, 180deg = 위에서 아래로)
+        float gradientFactor = vUv.y; // 0.0 (하단) ~ 1.0 (상단)
+        
+        // CSS 그라디언트 정확히 재현
+        vec3 base;
+        if (gradientFactor > 0.9808) {
+          // 98.08% 이상: 상단 색상
+          base = topColor;
+        } else if (gradientFactor > 0.7981) {
+          // 79.81% ~ 98.08%: 중간에서 상단으로
+          float t = (gradientFactor - 0.7981) / (0.9808 - 0.7981);
+          base = mix(midColor, topColor, t);
+        } else if (gradientFactor > 0.0096) {
+          // 0.96% ~ 79.81%: 하단에서 중간으로
+          float t = (gradientFactor - 0.0096) / (0.7981 - 0.0096);
+          base = mix(bottomColor, midColor, t);
+        } else {
+          // 0.96% 이하: 하단 색상
+          base = bottomColor;
+        }
+        
+        // 이미지처럼 균일한 확산 블러 효과 - 모든 가장자리에서 바깥쪽으로 확산
+        // 블롭 전체가 부드럽게 빛을 내뿜는 듯한 효과
+        
+        // 중심에서 가장자리까지의 거리 기반 블러 (방향성 없음)
+        float centerDistance = r; // 중심(0.5, 0.5)에서의 거리
+        float maxDistance = 0.5; // 최대 거리 (구의 반지름)
+        
+        // 거리 기반 블러 강도 (중심은 선명, 가장자리로 갈수록 강한 블러)
+        float radialBlur = smoothstep(0.0, maxDistance, centerDistance);
+        radialBlur = radialBlur * radialBlur * 0.8; // 제곱으로 부드러운 전환
+        
+        // 정적인 블러 효과 (애니메이션 없음)
+        float blurNoise1 = sin(vUv.x * 6.0) * sin(vUv.y * 6.0) * radialBlur;
+        float blurNoise2 = sin(vUv.x * 10.0) * sin(vUv.y * 10.0) * radialBlur * 0.7;
+        float blurNoise3 = sin(vUv.x * 14.0) * sin(vUv.y * 14.0) * radialBlur * 0.5;
+        float blurNoise4 = sin(vUv.x * 18.0) * sin(vUv.y * 18.0) * radialBlur * 0.3;
+        
+        // 색상에 블러 노이즈 적용
+        base += blurNoise1 + blurNoise2 + blurNoise3 + blurNoise4;
+        
+        // 균일한 가장자리 부드러움 (모든 방향에서 동일)
+        float edgeSoftness = smoothstep(0.0, 0.1 + radialBlur * 0.3, centerDistance);
+        base *= edgeSoftness;
+        
+        // 정적인 색상 확산 효과 (애니메이션 없음)
+        float colorSpread = radialBlur * 0.2;
+        base.r += sin(vUv.x * 12.0) * colorSpread;
+        base.g += sin(vUv.x * 12.0) * colorSpread;
+        base.b += sin(vUv.x * 12.0) * colorSpread;
+        
+        // 배경과의 균일한 블렌딩 (모든 가장자리에서 동일하게)
+        vec3 bgColor = vec3(0.95, 0.95, 0.98); // 매우 밝은 배경
+        float blendFactor = radialBlur * 0.6; // 균일한 블렌딩
+        base = mix(base, bgColor, blendFactor);
+        
+        // 정적인 확산 효과 (애니메이션 없음)
+        float lightSpread = radialBlur * 0.3;
+        base += sin(vUv.x * 8.0) * lightSpread;
+        base += sin(vUv.y * 8.0) * lightSpread;
+        
+        // 정적인 최종 색상 (애니메이션 효과 모두 제거)
+        vec3 lit = base;
+        
+        // 간단한 프레넬 효과만 유지 (정적)
+        vec3 V = vec3(0.0, 0.0, 1.0);
+        float fres = pow(1.0 - max(dot(N, V), 0.0), 2.6);
+        vec3 rimGlow = vec3(0.8, 0.3, 0.7) * fres * 0.2;
+        lit += rimGlow;
+        
+        // 간단한 가장자리 페더링
+        float edgeFeather = smoothstep(0.52, 0.36, r);
+        float alpha = 0.85 * edgeFeather + fres * 0.1;
+        alpha = clamp(alpha, 0.0, 0.95);
+        
+        gl_FragColor = vec4(lit, alpha);
       }
     `,
     transparent: true,
@@ -82,18 +144,6 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
   // 스프링 상태 저장 (속도)
   const zVelocityRef = useRef(0)
   const yVelocityRef = useRef(0)
-
-  // 스크롤 이벤트 핸들러
-  useEffect(() => {
-    const handleWheel = (event) => {
-      event.preventDefault()
-      const delta = event.deltaY > 0 ? -0.1 : 0.1
-      setZoomLevel(prev => Math.max(0.3, Math.min(3.0, prev + delta)))
-    }
-
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [])
 
   useFrame((state, delta) => {
     material.uniforms.time.value += delta
@@ -173,8 +223,8 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
 
   return (
     <>
-      <mesh ref={meshRef} position={[0, yBottom, 0]} rotation={[0, 0, Math.PI / 4]} scale={[zoomLevel, zoomLevel, zoomLevel]}>
-        <torusKnotGeometry args={[radius * 0.4, radius * 0.1, 128, 16, 2, 3]} />
+      <mesh ref={meshRef} position={[0, yBottom, 0]}>
+        <sphereGeometry args={[radius, 256, 256]} />
         <primitive object={material} attach="material" />
       </mesh>
     </>
