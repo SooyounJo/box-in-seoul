@@ -84,13 +84,17 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         // 이미지처럼 균일한 확산 블러 효과 - 모든 가장자리에서 바깥쪽으로 확산
         // 블롭 전체가 부드럽게 빛을 내뿜는 듯한 효과
         
-        // 중심에서 가장자리까지의 거리 기반 블러 (방향성 없음)
+        // 중심에서 가장자리까지의 거리 기반 블러 (좌측 강화)
         float centerDistance = r; // 중심(0.5, 0.5)에서의 거리
         float maxDistance = 0.5; // 최대 거리 (구의 반지름)
         
+        // 좌측에 더 강한 블러를 위한 x 좌표 기반 가중치
+        float leftWeight = smoothstep(0.5, -0.2, vUv.x) * 0.4; // 좌측으로 갈수록 증가
+        
         // 거리 기반 블러 강도 (중심은 선명, 가장자리로 갈수록 강한 블러)
         float radialBlur = smoothstep(0.0, maxDistance, centerDistance);
-        radialBlur = radialBlur * radialBlur * 0.8; // 제곱으로 부드러운 전환
+        // 좌측 가중치를 더해서 좌측 블러 강화
+        radialBlur = (radialBlur * radialBlur + leftWeight) * 0.8;
         
         // 정적인 블러 효과 (애니메이션 없음)
         float blurNoise1 = sin(vUv.x * 6.0) * sin(vUv.y * 6.0) * radialBlur;
@@ -130,10 +134,14 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         vec3 rimGlow = vec3(0.8, 0.3, 0.7) * fres * 0.2;
         lit += rimGlow;
         
-        // 간단한 가장자리 페더링
+        // 좌측이 더 부드러운 가장자리 페더링
+        float leftFade = smoothstep(0.5, -0.2, vUv.x) * 0.3; // 좌측 페이드
         float edgeFeather = smoothstep(0.52, 0.36, r);
-        float alpha = 0.85 * edgeFeather + fres * 0.1;
-        alpha = clamp(alpha, 0.0, 0.95);
+        // 좌측에서 더 부드럽게 페이드아웃
+        edgeFeather = mix(edgeFeather, smoothstep(0.58, 0.32, r), leftFade);
+        float alpha = 0.85 * edgeFeather + fres * 0.12;
+        // 좌측은 더 투명하게
+        alpha = clamp(alpha * (1.0 - leftFade * 0.3), 0.0, 0.95);
         
         gl_FragColor = vec4(lit, alpha);
       }

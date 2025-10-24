@@ -43,6 +43,12 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
       float breathingMotion(float time){ float slow=sin(time*0.3)*0.15; float fast=sin(time*0.8)*0.08; float deep=sin(time*0.15)*0.25; return slow+fast+deep; }
       float bumpMove(float c,float w,float f){ float d0=abs(f-(c-1.0)); float d1=abs(f-c); float d2=abs(f-(c+1.0)); float d=min(d0,min(d1,d2)); float aa=fwidth(f)*1.2; return smoothstep(w+aa,0.0+aa,d);}      
       vec3 bandWeights(float f){ float width=0.25; float y=bumpMove(0.18,width,f); float p=bumpMove(0.52,width,f); float u=bumpMove(0.86,width,f); return vec3(y,p,u);}      
+      
+      // 부드러운 블러 함수 추가
+      float softBlur(float x, float strength) {
+        return exp(-x * x / strength);
+      }
+      
       void main(){
         vec3 N=normalize(vNormal); vec3 L=normalize(lightDir); vec2 p=vUv-0.5; float r=length(p);
         float breathing=breathingMotion(time); r=r*(1.0+breathing*0.3);
@@ -61,8 +67,17 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         float mask1=clamp(w1.x+w1.y+w1.z,0.0,1.0); float mask2=clamp(w2.x+w2.y+w2.z,0.0,1.0); float mask3=clamp(w3.x+w3.y+w3.z,0.0,1.0); float flowMaskAvg=clamp((0.5*mask1 + 0.35*mask2 + 0.15*mask3),0.0,1.0);
         vec3 lit=base; lit=mix(lit,flowColor,flowMaskAvg*0.4);
         vec3 rippleColor=vec3(0.8,0.4,0.6)*totalRipple*0.2; vec3 elasticColor=vec3(0.8,0.3,0.7)*totalElastic*0.15; lit+=rippleColor+elasticColor;
-        vec3 V=vec3(0.0,0.0,1.0); float fres=pow(1.0 - max(dot(N,V),0.0),2.6); vec3 rimGlow=vec3(0.8,0.3,0.7)*fres*0.3; float softHalo=smoothstep(0.34,0.10,r)*0.08; vec3 glow=rimGlow + vec3(0.8,0.4,0.8)*softHalo; lit+=glow;
-        lit+=vec3(0.8,0.2,0.6)*(1.0-topness)*0.1; vec3 gray=vec3(dot(lit,vec3(0.299,0.587,0.114)));
+        
+        // 프레넬과 글로우 효과 강화
+        vec3 V=vec3(0.0,0.0,1.0); 
+        float fres=pow(1.0 - max(dot(N,V),0.0), 2.2); // 프레넬 지수 감소로 더 부드럽게
+        vec3 rimGlow=vec3(0.8,0.3,0.7)*fres*0.4; // 림 글로우 강화
+        float softHalo=smoothstep(0.4, 0.1, r)*0.12; // 헤일로 효과 확대 및 강화
+        vec3 glow=rimGlow + vec3(0.8,0.4,0.8)*softHalo;
+        lit+=glow;
+        
+        lit+=vec3(0.8,0.2,0.6)*(1.0-topness)*0.1;
+        vec3 gray=vec3(dot(lit,vec3(0.299,0.587,0.114)));
         float loopPhase = 0.5 + 0.5 * sin(6.28318530718 * time / 7.0);
         float sat = 1.0 + 0.85 * loopPhase;
         lit = mix(gray, lit, sat);
@@ -71,7 +86,17 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         float contrast = 1.0 + 0.32 * loopPhase;
         lit = (lit - 0.5) * contrast + 0.5;
         lit=pow(lit,vec3(0.9)); lit*=1.05; lit=mix(lit,vec3(1.0),0.02); lit=clamp(lit,0.0,1.0);
-        float edgeFeather=smoothstep(0.52,0.36,r); float alpha=0.80*edgeFeather + fres*0.10; alpha=clamp(alpha,0.0,0.96);
+        
+        // 외곽 블러 효과 강화
+        float edgeBase = smoothstep(0.56, 0.32, r); // 더 넓은 범위의 기본 페더링
+        float edgeGlow = softBlur(r - 0.4, 0.15); // 부드러운 글로우 추가
+        float edgeFeather = edgeBase * (1.0 + edgeGlow * 0.3);
+        
+        // 알파 값 조정 (전체적으로 더 투명하게)
+        float alpha = 0.75 * edgeFeather + fres * 0.15;  // 기본 알파값을 0.85에서 0.75로 낮춤
+        alpha = alpha * (1.0 - softBlur(r - 0.45, 0.2) * 0.35); // 외곽 블러 효과 약간 강화
+        alpha = clamp(alpha, 0.0, 0.92);  // 최대 알파값도 0.96에서 0.92로 낮춤
+        
         gl_FragColor=vec4(lit,alpha);
       }
     `,
@@ -152,11 +177,19 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
   const meshRef = useRef()
   const { camera, viewport } = useThree()
   const v = viewport.getCurrentViewport(camera, [0, 0, 0])
-  // ver3 모달에서 항상 모바일 크기로 렌더링 (하단 잘리도록)
-  const isVer3 = typeof window !== 'undefined' && window.location.pathname === '/ver3'
-  const radius = Math.min(v.width, v.height) * (isVer3 ? 0.8 : 0.33)
-  const margin = isVer3 ? v.height * 0.01 : v.height * 0.035
-  const yBottom = isVer3 ? -v.height / 2 + radius * 0.6 + margin : -v.height / 2 + radius + margin
+  
+  // 모바일 여부 확인
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+  
+  // 모바일에서는 더 큰 크기와 잘린 위치로 설정
+  const radius = Math.min(v.width, v.height) * (isMobile ? 0.7 : 0.33)
+  const margin = v.height * (isMobile ? 0.01 : 0.035)
+  
+  // 모바일에서는 스피어가 좌우 하단이 잘리도록 위치 조정
+  let yBottom = -v.height / 2 + radius + margin
+  if (isMobile) {
+    yBottom = -v.height / 2 + radius * 0.5 // 하단이 더 많이 잘리도록
+  }
 
   return (
     <>
@@ -167,4 +200,3 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
     </>
   )
 }
-

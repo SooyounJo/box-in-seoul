@@ -1,23 +1,20 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-export default function ShaderBubble6({ isActive = false }) {
-  const [transitionProgress, setTransitionProgress] = useState(1)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  
+export default function ShaderBubble6({ isActive = false, transition = 0 }) {
   // 1.js와 동일한 기본 셰이더 + 물방울 효과 추가
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0 },
       lightDir: { value: new THREE.Vector3(0.2, 0.9, 0.3).normalize() },
       ringDir: { value: new THREE.Vector3(0.08, 0.56, 0.86).normalize() },
-        camY: { value: 0.0 },
-        moveActive: { value: 0.0 },
-        camZ: { value: 6.0 },
-        zoomActive: { value: 0.0 },
-        transitionProgress: { value: 0 },
-        scaleFactor: { value: 1.0 }, // 구 크기 조절
+      camY: { value: 0.0 },
+      moveActive: { value: 0.0 },
+      camZ: { value: 6.0 },
+      zoomActive: { value: 0.0 },
+      transitionProgress: { value: 1.0 },
+      scaleFactor: { value: 1.0 }, // 구 크기 조절
     },
     vertexShader: `
       uniform float scaleFactor;
@@ -137,48 +134,10 @@ export default function ShaderBubble6({ isActive = false }) {
     transparent: true,
   }), [])
 
-  // 2초 자연스러운 트랜지션 효과
-  useEffect(() => {
-    setIsTransitioning(true)
-    const startTime = Date.now()
-    const duration = 2000 // 2초
-    
-    // 초기값 설정 - 처음 버튼을 누르면 1(움직임 없는 1 상태)로 시작
-    setTransitionProgress(isActive ? 1 : 1)
-    material.uniforms.transitionProgress.value = isActive ? 1 : 1
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      
-      // 더 자연스러운 이징 함수 (ease-out cubic)
-      const easedProgress = progress < 0.5 
-        ? 4 * progress * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2
-      
-      // 처음 버튼을 누르면 1(움직임 없는 1 상태)에서 0(물방울 효과)으로 전환
-      const targetProgress = isActive ? 1 - easedProgress : 1
-      setTransitionProgress(targetProgress)
-      material.uniforms.transitionProgress.value = targetProgress
-      
-      // 액티브될 때 구가 살짝 줄어드는 효과
-      const scaleTarget = isActive ? 0.85 : 1.0 // 액티브 시 85% 크기
-      const currentScale = material.uniforms.scaleFactor.value
-      const newScale = currentScale + (scaleTarget - currentScale) * 0.1 // 부드러운 스케일 전환
-      material.uniforms.scaleFactor.value = newScale
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        setIsTransitioning(false)
-      }
-    }
-    
-    requestAnimationFrame(animate)
-  }, [isActive, material])
-
   useFrame((state, delta) => {
     material.uniforms.time.value += delta
+    material.uniforms.transitionProgress.value = transition
+    material.uniforms.scaleFactor.value = 1.0 - (1.0 - 0.85) * (1.0 - transition) // 활성화 시 85% 크기
   })
 
   const meshRef = useRef()

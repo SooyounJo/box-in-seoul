@@ -195,13 +195,18 @@ export default function ShaderBubble3() {
         lit = mix(lit, vec3(1.0), 0.05);
         lit = clamp(lit, 0.0, 1.1);
 
-        float edgeFeather = smoothstep(0.52, 0.36, r);
-        float alpha = 0.80 * edgeFeather + fres*0.10;
+        // 외곽 페더링 범위 확장 및 부드럽게
+        float edgeFeather = smoothstep(0.54, 0.32, r);
+        float alpha = 0.75 * edgeFeather + fres * 0.12;
         
-        // 핑크 홀로그램 알파 효과 - 조금 더 빠르게
-        float hologramFlicker = 0.7 + 0.3 * sin(time * 4.0 + r * 15.0);
+        // 외곽으로 갈수록 더 투명하게
+        float edgeGradient = 1.0 - smoothstep(0.3, 0.5, r);
+        alpha *= mix(0.85, 1.0, edgeGradient);
+        
+        // 핑크 홀로그램 알파 효과 - 조금 더 부드럽게
+        float hologramFlicker = 0.75 + 0.25 * sin(time * 3.8 + r * 14.0);
         alpha *= hologramFlicker;
-        alpha = clamp(alpha, 0.3, 0.9);
+        alpha = clamp(alpha, 0.25, 0.85);
 
         gl_FragColor = vec4(lit, alpha);
       }

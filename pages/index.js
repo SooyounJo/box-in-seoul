@@ -13,6 +13,11 @@ import ShaderBubble9 from '../components/ver1/9'
 import Type1 from '../components/ver2/type1'
 import Type2 from '../components/ver2/type2'
 import Type3 from '../components/ver2/type3'
+import LG1 from '../components/ver3/lg1'
+import LG2 from '../components/ver3/lg2'
+import LG3 from '../components/ver3/lg3'
+import LG4 from '../components/ver3/lg4'
+import LG5 from '../components/ver3/lg5'
 import ShaderBubble22 from '../components/ver1/2.2'
 import { useRouter } from 'next/router'
 
@@ -21,7 +26,54 @@ export default function Home() {
   const [selectedStyle, setSelectedStyle] = useState(1)
   const [isActive6, setIsActive6] = useState(false)
   const [isActive7, setIsActive7] = useState(false)
+  const [transition6, setTransition6] = useState(0) // 0-1 사이의 전환 값
+  const [transition7, setTransition7] = useState(0) // 0-1 사이의 전환 값
   const router = useRouter()
+
+  // 자동 상태 변경을 위한 useEffect
+  useEffect(() => {
+    let startTime = Date.now()
+    const totalCycleTime = 14000 // 14초 (5초 활성 + 2초 전환 + 5초 비활성 + 2초 전환)
+    const activeTime = 5000 // 5초
+    const transitionTime = 2000 // 2초
+
+    const updateTransitions = () => {
+      const currentTime = Date.now()
+      const elapsedTime = (currentTime - startTime) % totalCycleTime
+
+      // 상태 계산
+      if (elapsedTime < activeTime) {
+        // 활성 상태
+        setTransition6(1)
+        setTransition7(1)
+        setIsActive6(true)
+        setIsActive7(true)
+      } else if (elapsedTime < (activeTime + transitionTime)) {
+        // 활성 → 비활성 전환
+        const t = (elapsedTime - activeTime) / transitionTime
+        setTransition6(1 - t)
+        setTransition7(1 - t)
+        setIsActive6(true)
+        setIsActive7(true)
+      } else if (elapsedTime < (activeTime + transitionTime + activeTime)) {
+        // 비활성 상태
+        setTransition6(0)
+        setTransition7(0)
+        setIsActive6(false)
+        setIsActive7(false)
+      } else {
+        // 비활성 → 활성 전환
+        const t = (elapsedTime - (activeTime + transitionTime + activeTime)) / transitionTime
+        setTransition6(t)
+        setTransition7(t)
+        setIsActive6(false)
+        setIsActive7(false)
+      }
+    }
+
+    const intervalId = setInterval(updateTransitions, 16) // 약 60fps
+    return () => clearInterval(intervalId)
+  }, [])
 
   // 버전 변경 함수
   const handleVersionChange = (version) => {
@@ -31,6 +83,8 @@ export default function Home() {
       setSelectedStyle(1)
     } else if (version === 'ver2') {
       setSelectedStyle('type1')
+    } else if (version === 'ver3') {
+      setSelectedStyle('lg1')
     }
     // 6, 7번 상태 리셋
     setIsActive6(false)
@@ -64,7 +118,7 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="app-container">
+      <div className={`app-container ${selectedVersion === 'ver1' ? 'ver1-bg' : ''}`}>
         {/* 버전 선택 버튼 (좌측 위) */}
         <div className="version-selector">
           <button 
@@ -79,12 +133,6 @@ export default function Home() {
           >
             Ver.2
           </button>
-          <button 
-            className="version-btn mobile-btn"
-            onClick={() => router.push('/ver3')}
-          >
-            Mobile
-          </button>
         </div>
 
         {/* 3D Canvas */}
@@ -95,7 +143,7 @@ export default function Home() {
             gl={{ antialias: true, powerPreference: 'high-performance' }}
             camera={{ position: [0, 0, 6], fov: 50 }}
           >
-            <color attach="background" args={["#ffffff"]} />
+            <color attach="background" args={[selectedVersion === 'ver3' ? "#000000" : "#eef4d5"]} />
             <ambientLight intensity={0.3} />
             <directionalLight position={[2, 3, 2]} intensity={0.5} />
             {selectedStyle === 1 ? <ShaderBubble /> : 
@@ -104,17 +152,22 @@ export default function Home() {
              selectedStyle === 3 ? <ShaderBubble3 /> : 
              selectedStyle === 4 ? <ShaderBubble4 /> : 
              selectedStyle === 5 ? <ShaderBubble5 /> : 
-             selectedStyle === 6 ? <ShaderBubble6 isActive={isActive6} /> :
-             selectedStyle === 7 ? <ShaderBubble7 isActive={isActive7} /> :
+             selectedStyle === 6 ? <ShaderBubble6 isActive={isActive6} transition={transition6} /> :
+             selectedStyle === 7 ? <ShaderBubble7 isActive={isActive7} transition={transition7} /> :
              selectedStyle === 8 ? <ShaderBubble8 /> :
              selectedStyle === 9 ? <ShaderBubble9 /> :
              selectedStyle === 'type1' ? <Type1 /> :
              selectedStyle === 'type2' ? <Type2 /> :
              selectedStyle === 'type3' ? <Type3 /> :
+             selectedStyle === 'lg1' ? <LG1 /> :
+             selectedStyle === 'lg2' ? <LG2 /> :
+             selectedStyle === 'lg3' ? <LG3 /> :
+             selectedStyle === 'lg4' ? <LG4 /> :
+             selectedStyle === 'lg5' ? <LG5 /> :
              <ShaderBubble />}
           </Canvas>
           
-          {/* 버튼별 제목 표시 - ver1만 */}
+          {/* 버튼별 제목 표시 */}
           {selectedVersion === 'ver1' && selectedStyle === 1 && (
             <div className="title-overlay">
               <h1 className="style-title">Main State</h1>
@@ -148,40 +201,12 @@ export default function Home() {
           {selectedVersion === 'ver1' && selectedStyle === 6 && (
              <div className="title-overlay">
                <h1 className="style-title">Speaking Transition</h1>
-              <div className="toggle-controls">
-                <button 
-                  className={`toggle-btn deactivate-btn ${!isActive6 ? 'active' : ''}`}
-                  onClick={() => setIsActive6(false)}
-                >
-                  Deactivate
-                </button>
-                <button 
-                  className={`toggle-btn activate-btn ${isActive6 ? 'active' : ''}`}
-                  onClick={() => setIsActive6(true)}
-                >
-                  Activate
-                </button>
-              </div>
-            </div>
+             </div>
           )}
           {selectedVersion === 'ver1' && selectedStyle === 7 && (
              <div className="title-overlay">
                <h1 className="style-title">Thinking Transition</h1>
-              <div className="toggle-controls">
-                <button 
-                  className={`toggle-btn deactivate-btn ${!isActive7 ? 'active' : ''}`}
-                  onClick={() => setIsActive7(false)}
-                >
-                  Deactivate
-                </button>
-                <button 
-                  className={`toggle-btn activate-btn ${isActive7 ? 'active' : ''}`}
-                  onClick={() => setIsActive7(true)}
-                >
-                  Activate
-                </button>
-              </div>
-            </div>
+             </div>
           )}
           {selectedVersion === 'ver1' && selectedStyle === 8 && (
             <div className="title-overlay">
@@ -206,6 +231,31 @@ export default function Home() {
           {selectedVersion === 'ver2' && selectedStyle === 'type3' && (
              <div className="title-overlay">
                <h1 className="style-title">Type 3</h1>
+             </div>
+           )}
+          {selectedVersion === 'ver3' && selectedStyle === 'lg1' && (
+             <div className="title-overlay">
+               <h1 className="style-title light-title">Light 1</h1>
+             </div>
+           )}
+          {selectedVersion === 'ver3' && selectedStyle === 'lg2' && (
+             <div className="title-overlay">
+               <h1 className="style-title light-title">Light 2</h1>
+             </div>
+           )}
+          {selectedVersion === 'ver3' && selectedStyle === 'lg3' && (
+             <div className="title-overlay">
+               <h1 className="style-title light-title">Light 3</h1>
+             </div>
+           )}
+          {selectedVersion === 'ver3' && selectedStyle === 'lg4' && (
+             <div className="title-overlay">
+               <h1 className="style-title light-title">Light 4</h1>
+             </div>
+           )}
+          {selectedVersion === 'ver3' && selectedStyle === 'lg5' && (
+             <div className="title-overlay">
+               <h1 className="style-title light-title">Light 5</h1>
              </div>
            )}
         </div>
@@ -238,6 +288,20 @@ export default function Home() {
             ))}
           </div>
         )}
+
+        {selectedVersion === 'ver3' && (
+          <div className="version-switcher-bottom ver3-buttons" role="navigation" aria-label="Style Switcher ver3">
+            {['lg1', 'lg2', 'lg3', 'lg4', 'lg5'].map((lg) => (
+              <button
+                key={lg}
+                className={`ver-button ${selectedStyle === lg ? 'active' : ''}`}
+                onClick={() => handleStyleChange(lg)}
+              >
+                {lg.replace('lg', 'L')}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -246,6 +310,16 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           position: relative;
+        }
+
+        .ver1-bg {
+          background: linear-gradient(180deg, 
+            #f2ecc6 0%,    /* 상단: 부드러운 크림 옐로우 */
+            #e8e4b8 25%,   /* 상단 중간: 따뜻한 샌드 옐로우 */
+            #e2dca8 50%,   /* 중간: 옐로우-그린 */
+            #d8d696 75%,   /* 하단 중간: 세이지 옐로우 */
+            #cfd086 100%   /* 하단: 올리브 옐로우 */
+          );
         }
 
         .version-selector {
@@ -381,6 +455,24 @@ export default function Home() {
           box-shadow: 0 0 15px rgba(50, 205, 50, 0.7);
         }
 
+        .ver3-buttons {
+          margin-top: 10px;
+        }
+
+        .ver3-buttons .ver-button {
+          background: #ffd700 !important;
+          color: #000000 !important;
+        }
+
+        .ver3-buttons .ver-button:hover {
+          background: #ffed4e !important;
+        }
+
+        .ver3-buttons .ver-button.active {
+          background: #ff8c00 !important;
+          box-shadow: 0 0 15px rgba(255, 140, 0, 0.7);
+        }
+
         .title-overlay {
           position: absolute;
           top: 72px;
@@ -396,6 +488,11 @@ export default function Home() {
           font-size: 2.5rem;
           margin: 0;
           text-align: center;
+        }
+
+        .light-title {
+          color: #ffffff;
+          text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .r3f-canvas {
