@@ -3,9 +3,13 @@ import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 export default function ShaderBubble8() {
+  const { viewport, camera } = useThree()
+  const v = viewport.getCurrentViewport(camera, [0, 0, 0])
+  const radius = Math.min(v.width, v.height) * 0.33
+
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      time: { value: 0 },
+      time: { value: 0 }
     },
     vertexShader: `
       varying vec2 vUv;
@@ -30,60 +34,73 @@ export default function ShaderBubble8() {
         vec2 center = vUv - 0.5;
         float dist = length(center);
         
-        // 프레넬 효과 감소
+        // 프레넬 효과
         vec3 viewDir = normalize(vViewPosition);
         float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 2.0) * 0.3;
         
-        // 컬러 그라데이션 정의 (채도 낮춤)
-        vec3 pink = vec3(0.95, 0.4, 0.65);     // 중앙 핑크 (채도 낮춤)
-        vec3 yellow = vec3(0.95, 0.85, 0.65);  // 중간 옐로우 (채도 낮춤)
-        vec3 purple = vec3(0.85, 0.75, 0.95);  // 외곽 퍼플 (채도 낮춤)
+        // 10번 파라미터 값 적용
+        float centerRange = 0.57;
+        float midRange = 0.15;
+        float outerRange = 0.29;
+        float blendStrength = 0.2;
         
-        // 거리에 따른 컬러 블렌딩 (부드럽게)
+        // 컬러 정의
+        vec3 centerColor = vec3(1.0, 0.75, 0.9);    // 중앙 핑크
+        vec3 midColor = vec3(1.0, 0.85, 0.7);       // 중간 피치
+        vec3 outerColor = vec3(0.9, 0.8, 1.0);      // 외곽 연보라
+        
+        // 거리에 따른 컬러 블렌딩
         vec3 color;
-        if (dist < 0.25) {
-          // 중앙: 핑크 → 옐로우
-          color = mix(pink, yellow, smoothstep(0.0, 0.25, dist));
-        } else {
-          // 외곽: 옐로우 → 퍼플
-          color = mix(yellow, purple, smoothstep(0.25, 0.5, dist));
-        }
+        float centerMix = smoothstep(0.0, centerRange * blendStrength, dist);
+        float midMix = smoothstep(centerRange, centerRange + midRange, dist);
+        float outerMix = smoothstep(centerRange + midRange, centerRange + midRange + outerRange, dist);
         
-        // 프레넬 효과 감소
+        // 컬러 믹싱
+        color = mix(centerColor, midColor, centerMix);
+        color = mix(color, outerColor, midMix);
+        
+        // 프레넬 효과 추가
         color += vec3(0.1) * fresnel;
         
-        // 글로우 효과 조정
-        float glow = exp(-dist * 2.5) * 0.8;
-        color += vec3(0.9, 0.8, 0.9) * glow;
+        // 글로우 효과
+        float centerGlow = exp(-dist * 3.0) * 0.8;
+        color += mix(centerColor, midColor, centerGlow) * centerGlow;
         
-        // 콘트라스트 조정
-        color = pow(color, vec3(0.85)); // 감마 조정으로 중간톤 보존
+        // 외곽 글로우
+        float edgeGlow = exp(-abs(dist - 0.4) * 4.0) * 0.4;
+        color += mix(midColor, outerColor, edgeGlow) * edgeGlow;
         
-        // 부드러운 알파값 계산 (투명도 증가)
+        // 컬러 보정
+        color = pow(color, vec3(0.85));  // 감마 보정
+        color *= 1.1;                    // 밝기 증가
+        
+        // 알파값 계산
         float alpha = smoothstep(0.5, 0.2, dist);
-        alpha *= 0.85; // 전체적인 투명도 증가
-        
-        // 외곽 블러 효과
-        float blur = smoothstep(0.5, 0.2, dist);
-        color = mix(color, color * 0.9, 1.0 - blur);
+        alpha *= 0.9;
         
         gl_FragColor = vec4(color, alpha);
       }
     `,
     transparent: true,
-    blending: THREE.NormalBlending, // AdditiveBlending에서 NormalBlending으로 변경
+    blending: THREE.NormalBlending,
     depthWrite: false,
-    side: THREE.DoubleSide,
+    depthTest: false,
   }), [])
 
   const meshRef = useRef()
-  const { camera, viewport } = useThree()
-  const v = viewport.getCurrentViewport(camera, [0, 0, 0])
-  const radius = Math.min(v.width, v.height) * 0.33
-  const yBottom = 0
+
+  useFrame(() => {
+    if (meshRef.current) {
+      material.uniforms.time.value += 0.01
+    }
+  })
 
   return (
-    <mesh ref={meshRef} position={[0, yBottom, 0]}>
+    <mesh
+      ref={meshRef}
+      position={[0, 0, 1]}
+      renderOrder={1000}
+    >
       <sphereGeometry args={[radius, 64, 64]} />
       <primitive object={material} attach="material" />
     </mesh>

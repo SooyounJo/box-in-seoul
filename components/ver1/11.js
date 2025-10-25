@@ -1,134 +1,136 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
-export default function ShaderBubble11() {
-  const material = useMemo(() => new THREE.ShaderMaterial({
+const BlobMaterial = ({ color }) => {
+  return new THREE.ShaderMaterial({
     uniforms: {
-      time: { value: 0 },
-      resolution: { value: new THREE.Vector2() },
+      time: { value: 0 }
     },
     vertexShader: `
       varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
-      #ifdef GL_ES
-      precision mediump float;
-      #endif
-
       uniform float time;
-      uniform vec2 resolution;
       varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
 
-      #define PI 3.14159265359
-      #define TWO_PI 6.28318530718
-
-      vec2 doModel(vec3 p);
-      vec2 unionOp(vec2 a, vec2 b);
-
-      float sdBox(vec3 p, vec3 b) {
-        vec3 d = abs(p) - b;
-        return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, 0.0));
-      }
-
-      float sdSphere(vec3 p, float r) {
-        return length(p) - r;
-      }
-
-      vec2 doModel(vec3 p) {
-        float t = time * 0.5;
-        float rt = t * PI;
-        
-        vec2 res = vec2(1e10, 0.0);
-        
-        float a = sin(rt * 0.7);
-        float b = cos(rt * 0.8);
-        float c = sin(rt * 0.4);
-        
-        vec3 bp = p;
-        bp = bp + vec3(a, b, c) * 0.2;
-        
-        for(float i = 0.0; i < 16.0; i++) {
-          float fi = i;
-          float time = t * (fract(fi * 412.531 + 0.513) - 0.5) * 2.0;
-          vec3 p = bp;
-          
-          p = p + vec3(
-            sin(time + fi * 1.0) * (1.0 + (sin(time * 0.7 + fi) * 0.5)),
-            cos(time * 0.8 + fi * 1.1) * (1.0 + (sin(time + fi) * 0.5)),
-            sin(time * 1.1 + fi * 1.1) * (1.0 + (sin(time * 0.5 + fi) * 0.5))
-          ) * 0.3;
-          
-          p = mix(bp, p, smoothstep(0.0, 0.2, abs(0.5 - fract(time * 0.5))));
-          
-          float d = sdSphere(p, 0.13);
-          
-          float glow = exp(-d * 4.0);
-          
-          vec2 res2 = vec2(d, glow);
-          res = unionOp(res, res2);
-        }
-        return res;
-      }
-
-      vec2 unionOp(vec2 a, vec2 b) {
-        return vec2(min(a.x, b.x), a.y + b.y);
+      float softBlur(float x, float strength) {
+        return exp(-x * x / strength);
       }
 
       void main() {
-        vec2 q = vUv;
-        vec2 p = -1.0 + 2.0 * q;
-        p.x *= resolution.x / resolution.y;
+        vec2 p = vUv - 0.5;
+        float r = length(p);
         
-        vec3 ro = vec3(0.0, 0.0, 2.5);
-        vec3 rd = normalize(vec3(p.x, p.y, -1.4));
+        // 프레넬 효과 (약하게)
+        vec3 viewDir = normalize(vViewPosition);
+        float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 2.0) * 0.2;
         
-        vec3 color = vec3(0.0);
-        float t = 0.0;
+        // 기본 컬러
+        vec3 color = ${color};
         
-        for(float i = 0.0; i < 64.0; i++) {
-          vec3 p = ro + rd * t;
-          vec2 res = doModel(p);
-          float d = res.x;
-          float glow = res.y;
-          
-          if(d < 0.001) {
-            break;
-          }
-          
-          t += d * 0.5;
-          
-          color += vec3(0.6, 0.4, 0.7) * 0.01 * glow * glow;
-        }
+        // 컬러 보정
+        color = pow(color, vec3(0.85));
+        color += vec3(0.1) * fresnel;
         
-        color = mix(vec3(0.0), color, exp(-t * 0.3));
+        // 부드러운 알파값 계산
+        float alpha = smoothstep(0.5, 0.2, r);
         
-        color = pow(color, vec3(0.8, 0.9, 0.8));
+        // 외곽 블러 효과
+        float edgeBlur = softBlur(r - 0.35, 0.3);
+        alpha *= (1.0 - edgeBlur * 0.3);
+        alpha = clamp(alpha, 0.0, 0.95);
         
-        gl_FragColor = vec4(color, 1.0);
+        gl_FragColor = vec4(color, alpha);
       }
     `,
     transparent: true,
-    blending: THREE.AdditiveBlending,
-  }), [])
+    blending: THREE.NormalBlending,
+    depthWrite: false,
+    depthTest: false,
+  });
+};
 
-  const meshRef = useRef()
-  const { viewport, size } = useThree()
+const Blob = ({ position, color, size, index }) => {
+  const material = useMemo(() => BlobMaterial({ color }), [color]);
+  const meshRef = useRef();
 
-  useFrame((state, delta) => {
-    if (!meshRef.current) return
-    material.uniforms.time.value += delta
-    material.uniforms.resolution.value.set(size.width, size.height)
-  })
+  useFrame((state) => {
+    if (meshRef.current) {
+      material.uniforms.time.value = state.clock.getElapsedTime();
+    }
+  });
 
   return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <planeGeometry args={[viewport.width, viewport.height]} />
+    <mesh ref={meshRef} position={position} renderOrder={1000 + index}>
+      <sphereGeometry args={[size, 64, 64]} />
       <primitive object={material} attach="material" />
     </mesh>
-  )
+  );
+};
+
+export default function ShaderBubble11() {
+  const { viewport } = useThree();
+  const groupRef = useRef();
+  const [time, setTime] = useState(0);
+
+  const blobColors = [
+    'vec3(0.95, 0.4, 0.6)',   // 핑크
+    'vec3(1.0, 0.7, 0.4)',    // 오렌지
+    'vec3(0.75, 0.15, 0.45)', // 마젠타
+    'vec3(0.2, 0.75, 0.45)',  // 민트
+    'vec3(0.2, 0.4, 0.85)'    // 블루
+  ];
+
+  const blobSizes = [0.15, 0.17, 0.14, 0.16, 0.15].map(
+    size => size * Math.min(viewport.width, viewport.height) * 0.33
+  );
+
+  useFrame((state) => {
+    setTime(state.clock.getElapsedTime());
+  });
+
+  const getPositions = () => {
+    const t = time * 0.5;
+    const spread = Math.sin(t) * 0.5 + 0.5;
+    const maxSpread = 0.5;
+    
+    return blobColors.map((_, i) => {
+      const angle = (i / blobColors.length) * Math.PI * 2 + t;
+      const distance = spread * maxSpread;
+      return [
+        Math.cos(angle) * distance,
+        Math.sin(angle) * distance,
+        0
+      ];
+    });
+  };
+
+  const positions = getPositions();
+
+  return (
+    <group ref={groupRef} position={[0, 0, 1]}>
+      {blobColors.map((color, i) => (
+        <Blob
+          key={i}
+          position={positions[i]}
+          color={color}
+          size={blobSizes[i]}
+          index={i}
+        />
+      ))}
+    </group>
+  );
 }

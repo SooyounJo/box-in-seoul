@@ -28,43 +28,37 @@ export default function Home() {
   const [selectedStyle, setSelectedStyle] = useState(1)
   const [isActive6, setIsActive6] = useState(false)
   const [isActive7, setIsActive7] = useState(false)
-  const [transition6, setTransition6] = useState(0) // 0-1 사이의 전환 값
-  const [transition7, setTransition7] = useState(0) // 0-1 사이의 전환 값
+  const [transition6, setTransition6] = useState(0)
+  const [transition7, setTransition7] = useState(0)
   const router = useRouter()
 
-  // 자동 상태 변경을 위한 useEffect
   useEffect(() => {
     let startTime = Date.now()
-    const totalCycleTime = 14000 // 14초 (5초 활성 + 2초 전환 + 5초 비활성 + 2초 전환)
-    const activeTime = 5000 // 5초
-    const transitionTime = 2000 // 2초
+    const totalCycleTime = 14000
+    const activeTime = 5000
+    const transitionTime = 2000
 
     const updateTransitions = () => {
       const currentTime = Date.now()
       const elapsedTime = (currentTime - startTime) % totalCycleTime
 
-      // 상태 계산
       if (elapsedTime < activeTime) {
-        // 활성 상태
         setTransition6(1)
         setTransition7(1)
         setIsActive6(true)
         setIsActive7(true)
       } else if (elapsedTime < (activeTime + transitionTime)) {
-        // 활성 → 비활성 전환
         const t = (elapsedTime - activeTime) / transitionTime
         setTransition6(1 - t)
         setTransition7(1 - t)
         setIsActive6(true)
         setIsActive7(true)
       } else if (elapsedTime < (activeTime + transitionTime + activeTime)) {
-        // 비활성 상태
         setTransition6(0)
         setTransition7(0)
         setIsActive6(false)
         setIsActive7(false)
       } else {
-        // 비활성 → 활성 전환
         const t = (elapsedTime - (activeTime + transitionTime + activeTime)) / transitionTime
         setTransition6(t)
         setTransition7(t)
@@ -73,14 +67,12 @@ export default function Home() {
       }
     }
 
-    const intervalId = setInterval(updateTransitions, 16) // 약 60fps
+    const intervalId = setInterval(updateTransitions, 16)
     return () => clearInterval(intervalId)
   }, [])
 
-  // 버전 변경 함수
   const handleVersionChange = (version) => {
     setSelectedVersion(version)
-    // 버전 변경 시 기본 스타일로 리셋
     if (version === 'ver1') {
       setSelectedStyle(1)
     } else if (version === 'ver2') {
@@ -88,12 +80,10 @@ export default function Home() {
     } else if (version === 'ver3') {
       setSelectedStyle('lg1')
     }
-    // 6, 7번 상태 리셋
     setIsActive6(false)
     setIsActive7(false)
   }
 
-  // 스타일 변경 시 6, 7번을 비활성화 상태로 리셋
   const handleStyleChange = (style) => {
     setSelectedStyle(style)
     if (style === 6) {
@@ -103,7 +93,6 @@ export default function Home() {
     }
   }
 
-  // URL 파라미터 처리
   useEffect(() => {
     if (router.query.style) {
       const style = parseInt(router.query.style)
@@ -120,8 +109,7 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className={`app-container ${selectedVersion === 'ver1' ? 'ver1-bg' : ''}`}>
-        {/* 버전 선택 버튼 (좌측 위) */}
+      <div className="app-container">
         <div className="version-selector">
           <button 
             className={`version-btn ${selectedVersion === 'ver1' ? 'active' : ''}`}
@@ -137,7 +125,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 3D Canvas */}
         <div className="canvas-container">
           <Canvas 
             className="r3f-canvas"
@@ -145,7 +132,7 @@ export default function Home() {
             gl={{ antialias: true, powerPreference: 'high-performance' }}
             camera={{ position: [0, 0, 6], fov: 50 }}
           >
-            <color attach="background" args={[selectedVersion === 'ver3' ? "#000000" : "#eef4d5"]} />
+            <color attach="background" args={[selectedVersion === 'ver3' ? "#000000" : "#f2ecc6"]} />
             <ambientLight intensity={0.3} />
             <directionalLight position={[2, 3, 2]} intensity={0.5} />
             {selectedStyle === 1 ? <ShaderBubble /> : 
@@ -171,7 +158,6 @@ export default function Home() {
              <ShaderBubble />}
           </Canvas>
           
-          {/* 버튼별 제목 표시 */}
           {selectedVersion === 'ver1' && selectedStyle === 1 && (
             <div className="title-overlay">
               <h1 className="style-title">Main State</h1>
@@ -264,7 +250,6 @@ export default function Home() {
            )}
         </div>
 
-        {/* 하단 버튼 - 버전에 따라 조건부 표시 */}
         {selectedVersion === 'ver1' && (
           <div className="version-switcher-bottom" role="navigation" aria-label="Style Switcher ver1">
             {[1, 2, 22, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((num) => (
@@ -316,16 +301,6 @@ export default function Home() {
           position: relative;
         }
 
-        .ver1-bg {
-          background: linear-gradient(180deg, 
-            #f2ecc6 0%,    /* 상단: 부드러운 크림 옐로우 */
-            #e8e4b8 25%,   /* 상단 중간: 따뜻한 샌드 옐로우 */
-            #e2dca8 50%,   /* 중간: 옐로우-그린 */
-            #d8d696 75%,   /* 하단 중간: 세이지 옐로우 */
-            #cfd086 100%   /* 하단: 올리브 옐로우 */
-          );
-        }
-
         .version-selector {
           position: absolute;
           top: 20px;
@@ -363,54 +338,9 @@ export default function Home() {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .mobile-btn {
-          background: #4CAF50 !important;
-          color: white !important;
-          border-color: #45a049 !important;
-        }
-
-        .mobile-btn:hover {
-          background: #45a049 !important;
-          border-color: #3d8b40 !important;
-        }
-
         .canvas-container {
           flex: 1;
           position: relative;
-        }
-
-        .toggle-controls {
-          margin-top: 10px;
-          display: flex;
-          justify-content: center;
-          gap: 10px;
-        }
-
-        .toggle-btn {
-          padding: 8px 16px;
-          background: #888888;
-          color: white;
-          border: none;
-          border-radius: 20px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          transition: all 0.3s ease;
-        }
-
-        .activate-btn.active {
-          background: #000000;
-          border-radius: 20px;
-        }
-
-        .deactivate-btn.active {
-          background: #000000;
-          border-radius: 20px;
-        }
-
-        .toggle-btn:hover {
-          opacity: 0.8;
-          transform: scale(1.05);
         }
 
         .red-button {
@@ -479,7 +409,7 @@ export default function Home() {
 
         .title-overlay {
           position: absolute;
-          top: 45px; /* 72px에서 45px로 위로 올림 */
+          top: 45px;
           left: 50%;
           transform: translateX(-50%);
           z-index: 5;
@@ -489,10 +419,10 @@ export default function Home() {
           color: #000000;
           font-family: 'Poppins', sans-serif;
           font-weight: 300;
-          font-size: 1.2rem; /* 크기 대폭 축소 */
+          font-size: 1.2rem;
           margin: 0;
           text-align: center;
-          letter-spacing: 0.02em; /* 가독성을 위한 자간 조정 */
+          letter-spacing: 0.02em;
         }
 
         .light-title {
@@ -505,7 +435,6 @@ export default function Home() {
           height: 100% !important;
         }
 
-        /* 모바일 반응형 */
         @media (max-width: 768px) {
           .app-container {
             display: flex;
@@ -533,19 +462,19 @@ export default function Home() {
           }
           
           .style-title {
-            font-size: 1rem; /* 모바일에서 더 작게 */
+            font-size: 1rem;
           }
           .title-overlay {
-            top: 40px; /* 68px에서 40px로 위로 올림 */
+            top: 40px;
           }
         }
 
         @media (max-width: 480px) {
           .style-title {
-            font-size: 0.9rem; /* 작은 모바일에서 더더욱 작게 */
+            font-size: 0.9rem;
           }
           .title-overlay {
-            top: 35px; /* 64px에서 35px로 위로 올림 */
+            top: 35px;
           }
         }
       `}</style>
