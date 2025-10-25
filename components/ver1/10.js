@@ -1,137 +1,152 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
 export default function ShaderBubble10() {
+  const { viewport, camera } = useThree()
+  const v = viewport.getCurrentViewport(camera, [0, 0, 0])
+  
+  const [params, setParams] = useState({
+    centerRange: 0.3,
+    midRange: 0.6,
+    outerRange: 0.9,
+    blendStrength: 0.5
+  });
+
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      time: { value: 0 },
-      resolution: { value: new THREE.Vector2() },
-      mousePos: { value: new THREE.Vector2(0.5, 0.5) },
+      centerRange: { value: params.centerRange },
+      midRange: { value: params.midRange },
+      outerRange: { value: params.outerRange },
+      blendStrength: { value: params.blendStrength }
     },
     vertexShader: `
       varying vec2 vUv;
-      varying vec3 vPosition;
-      
+      varying vec3 vNormal;
       void main() {
         vUv = uv;
-        vPosition = position;
+        vNormal = normalize(normalMatrix * normal);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform float time;
-      uniform vec2 resolution;
-      uniform vec2 mousePos;
+      uniform float centerRange;
+      uniform float midRange;
+      uniform float outerRange;
+      uniform float blendStrength;
       varying vec2 vUv;
-      varying vec3 vPosition;
-
-      #define NUM_BLOBS 6
-
-      // 노이즈 함수
-      float hash(vec2 p) { 
-        p = fract(p * vec2(123.34, 456.21));
-        p += dot(p, p + 45.32);
-        return fract(p.x * p.y); 
-      }
-
-      // 2D 노이즈
-      float noise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        float a = hash(i);
-        float b = hash(i + vec2(1.0, 0.0));
-        float c = hash(i + vec2(0.0, 1.0));
-        float d = hash(i + vec2(1.0, 1.0));
-        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-      }
-
-      // 블롭 색상 정의
-      vec3 getBlobColor(int index) {
-        if(index == 0) return vec3(1.0, 0.2, 0.2); // 빨강
-        if(index == 1) return vec3(0.2, 1.0, 0.2); // 초록
-        if(index == 2) return vec3(0.2, 0.2, 1.0); // 파랑
-        if(index == 3) return vec3(1.0, 1.0, 0.2); // 노랑
-        if(index == 4) return vec3(1.0, 0.2, 1.0); // 마젠타
-        return vec3(0.2, 1.0, 1.0); // 시안
-      }
-
-      // 블롭의 위치 계산
-      vec2 getBlobPosition(int index, float time) {
-        float angle = float(index) * 3.14159 * 2.0 / float(NUM_BLOBS) + time * 0.5;
-        float radius = 0.3 + 0.1 * sin(time * 0.5 + float(index));
-        return vec2(
-          0.5 + cos(angle) * radius + 0.1 * noise(vec2(time * 0.5 + float(index), 0.0)),
-          0.5 + sin(angle) * radius + 0.1 * noise(vec2(0.0, time * 0.5 + float(index)))
-        );
-      }
-
-      // 메타볼 필드 계산
-      float getMetaballField(vec2 p, vec2 center, float radius) {
-        float d = length(p - center);
-        return radius / (d * d);
-      }
+      varying vec3 vNormal;
 
       void main() {
-        vec2 uv = vUv;
-        float aspect = resolution.x / resolution.y;
-        uv.x *= aspect;
+        vec2 p = vUv - 0.5;
+        float r = length(p);
+
+        vec3 centerPink = vec3(1.0, 0.75, 0.9);
+        vec3 midOrange = vec3(1.0, 0.85, 0.7);
+        vec3 outerPurple = vec3(0.9, 0.8, 1.0);
         
-        float totalField = 0.0;
-        vec3 finalColor = vec3(0.0);
+        float centerMix = smoothstep(0.0, centerRange * blendStrength, r);
+        float midMix = smoothstep(centerRange, midRange * blendStrength, r);
+        float outerMix = smoothstep(midRange, outerRange * blendStrength, r);
         
-        // 각 블롭에 대한 필드와 색상 계산
-        for(int i = 0; i < NUM_BLOBS; i++) {
-          vec2 blobPos = getBlobPosition(i, time);
-          blobPos.x *= aspect;
-          float field = getMetaballField(uv, blobPos, 0.02);
-          
-          // 블롭 색상 혼합
-          vec3 blobColor = getBlobColor(i);
-          finalColor += blobColor * field;
-          totalField += field;
-        }
+        vec3 color = mix(centerPink, midOrange, centerMix);
+        color = mix(color, outerPurple, midMix);
         
-        // 색상 정규화 및 블렌딩
-        if(totalField > 0.0) {
-          finalColor /= totalField;
-        }
+        vec3 N = normalize(vNormal);
+        vec3 V = vec3(0.0, 0.0, 1.0);
+        float fres = pow(1.0 - max(dot(N, V), 0.0), 2.2);
         
-        // 메타볼 효과 적용
-        float metaball = smoothstep(0.8, 1.0, totalField);
-        
-        // 최종 색상 계산
-        vec3 color = mix(finalColor, vec3(1.0), metaball * 0.7);
-        
-        // 부드러운 알파 처리
-        float alpha = smoothstep(0.0, 0.2, totalField);
+        float edgeFeather = smoothstep(0.52, 0.36, r);
+        float alpha = 0.88 * edgeFeather + fres * 0.15;
+        alpha = clamp(alpha, 0.0, 0.95);
         
         gl_FragColor = vec4(color, alpha);
       }
     `,
     transparent: true,
-    blending: THREE.AdditiveBlending,
-  }), [])
+    depthWrite: false,
+    depthTest: false,
+  }), []);
 
-  const meshRef = useRef()
-  const { viewport, size } = useThree()
+  const meshRef = useRef();
+  const radius = Math.min(v.width, v.height) * 0.33;
 
-  useFrame((state, delta) => {
-    if (!meshRef.current) return
-    material.uniforms.time.value += delta
-    material.uniforms.resolution.value.set(size.width, size.height)
-    
-    // 마우스 위치 업데이트
-    const mouseX = (state.mouse.x + 1) / 2
-    const mouseY = (state.mouse.y + 1) / 2
-    material.uniforms.mousePos.value.set(mouseX, mouseY)
-  })
+  useFrame(() => {
+    if (meshRef.current) {
+      material.uniforms.centerRange.value = params.centerRange;
+      material.uniforms.midRange.value = params.midRange;
+      material.uniforms.outerRange.value = params.outerRange;
+      material.uniforms.blendStrength.value = params.blendStrength;
+    }
+  });
+
+  const ParamSlider = ({ label, value, onChange }) => (
+    <div style={{ marginBottom: '2px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
+        <span>{label}</span>
+        <span>{value.toFixed(2)}</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={value}
+        onChange={onChange}
+        style={{ width: '100%', height: '6px' }}
+      />
+    </div>
+  );
 
   return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <planeGeometry args={[viewport.width, viewport.height]} />
-      <primitive object={material} attach="material" />
-    </mesh>
-  )
+    <group renderOrder={1000}>
+      <mesh ref={meshRef} position={[0, 0, 0]}>
+        <sphereGeometry args={[radius, 64, 64]} />
+        <primitive object={material} attach="material" />
+      </mesh>
+      
+      <Html
+        wrapperClass="shader-controls"
+        style={{
+          width: '80px',
+          position: 'absolute',
+          right: '10px',
+          top: '10px',
+          background: 'rgba(60, 60, 60, 0.8)',
+          padding: '4px',
+          borderRadius: '4px',
+          fontSize: '7px',
+          fontFamily: 'monospace',
+          pointerEvents: 'auto',
+          transform: 'scale(0.9)',
+          transformOrigin: 'top right',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }}
+        distanceFactor={10}
+        position={[v.width / 2 - 0.1, v.height / 2 - 0.1, 0]}
+      >
+        <ParamSlider
+          label="Center"
+          value={params.centerRange}
+          onChange={(e) => setParams({...params, centerRange: parseFloat(e.target.value)})}
+        />
+        <ParamSlider
+          label="Mid"
+          value={params.midRange}
+          onChange={(e) => setParams({...params, midRange: parseFloat(e.target.value)})}
+        />
+        <ParamSlider
+          label="Outer"
+          value={params.outerRange}
+          onChange={(e) => setParams({...params, outerRange: parseFloat(e.target.value)})}
+        />
+        <ParamSlider
+          label="Blend"
+          value={params.blendStrength}
+          onChange={(e) => setParams({...params, blendStrength: parseFloat(e.target.value)})}
+        />
+      </Html>
+    </group>
+  );
 }

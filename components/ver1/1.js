@@ -92,10 +92,10 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
         float edgeGlow = softBlur(r - 0.4, 0.15); // 부드러운 글로우 추가
         float edgeFeather = edgeBase * (1.0 + edgeGlow * 0.3);
         
-        // 알파 값 조정 (전체적으로 더 투명하게)
-        float alpha = 0.75 * edgeFeather + fres * 0.15;  // 기본 알파값을 0.85에서 0.75로 낮춤
-        alpha = alpha * (1.0 - softBlur(r - 0.45, 0.2) * 0.35); // 외곽 블러 효과 약간 강화
-        alpha = clamp(alpha, 0.0, 0.92);  // 최대 알파값도 0.96에서 0.92로 낮춤
+        // 알파 값 조정 (더 선명하게)
+        float alpha = 0.88 * edgeFeather + fres * 0.15;  // 기본 알파값을 높임
+        alpha = alpha * (1.0 - softBlur(r - 0.45, 0.2) * 0.3); // 외곽 블러 효과 약간 감소
+        alpha = clamp(alpha, 0.0, 0.95);  // 최대 알파값 증가
         
         gl_FragColor=vec4(lit,alpha);
       }
@@ -182,13 +182,13 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
   
   // 모바일에서는 더 큰 크기와 잘린 위치로 설정
-  const radius = Math.min(v.width, v.height) * (isMobile ? 0.7 : 0.33)
+  const radius = Math.min(v.width, v.height) * (isMobile ? 0.45 : 0.33) // 모바일에서 크기 감소
   const margin = v.height * (isMobile ? 0.01 : 0.035)
   
   // 모바일에서는 스피어가 좌우 하단이 잘리도록 위치 조정
   let yBottom = -v.height / 2 + radius + margin
   if (isMobile) {
-    yBottom = -v.height / 2 + radius * 0.5 // 하단이 더 많이 잘리도록
+    yBottom = -v.height / 2 + radius * 0.4 // 하단이 더 많이 잘리도록
   }
 
   return (

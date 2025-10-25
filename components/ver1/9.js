@@ -227,7 +227,7 @@ export default function AgenticBubble({ styleType = 6, cameraMode = 'default' })
   const isVer3 = typeof window !== 'undefined' && window.location.pathname === '/ver3'
   const radius = Math.min(v.width, v.height) * (isVer3 ? 0.8 : 0.33)
   const margin = isVer3 ? v.height * 0.01 : v.height * 0.035
-  const yBottom = isVer3 ? -v.height / 2 + radius * 0.6 + margin : -v.height / 2 + radius + margin
+  const yBottom = 0 // 화면 중앙 배치
 
   return (
     <>

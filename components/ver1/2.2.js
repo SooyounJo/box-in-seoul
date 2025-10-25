@@ -222,11 +222,9 @@ export default function ShaderBubble3() {
   const { camera, viewport } = useThree()
   const v = viewport.getCurrentViewport(camera, [0, 0, 0])
 
-  const radius = Math.min(v.width, v.height) * (window.innerWidth <= 768 ? 0.5 : 0.33) // 모바일: 화면에 딱 맞춤 (잘림 없음)
+  const radius = Math.min(v.width, v.height) * 0.33 // 3번과 동일한 크기
   const margin = v.height * 0.035
-  const yBottom = window.innerWidth <= 768 ? 
-    -v.height / 2 + radius + margin : // 모바일: 화면 하단에 딱 맞춤
-    -v.height / 2 + radius + margin // 데스크톱: 기존 위치
+  const yBottom = 0 // 화면 중앙 배치
 
   return (
     <>

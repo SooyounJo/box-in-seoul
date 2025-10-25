@@ -143,9 +143,9 @@ export default function ShaderBubble6({ isActive = false, transition = 0 }) {
   const meshRef = useRef()
   const { camera, viewport } = useThree()
   const v = viewport.getCurrentViewport(camera, [0, 0, 0])
-  const radius = Math.min(v.width, v.height) * (window.innerWidth <= 768 ? 0.5 : 0.33)
+  const radius = Math.min(v.width, v.height) * 0.33 // 3번과 동일한 크기
   const margin = v.height * 0.035
-  const yBottom = window.innerWidth <= 768 ? -v.height / 2 + radius + margin : -v.height / 2 + radius + margin
+  const yBottom = 0 // 화면 중앙 배치
 
   return (
       <mesh ref={meshRef} position={[0, yBottom, 0]}>

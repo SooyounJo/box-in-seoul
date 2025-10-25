@@ -10,6 +10,8 @@ import ShaderBubble6 from '../components/ver1/6'
 import ShaderBubble7 from '../components/ver1/7'
 import ShaderBubble8 from '../components/ver1/8'
 import ShaderBubble9 from '../components/ver1/9'
+import ShaderBubble10 from '../components/ver1/10'
+import ShaderBubble11 from '../components/ver1/11'
 import Type1 from '../components/ver2/type1'
 import Type2 from '../components/ver2/type2'
 import Type3 from '../components/ver2/type3'
@@ -156,6 +158,8 @@ export default function Home() {
              selectedStyle === 7 ? <ShaderBubble7 isActive={isActive7} transition={transition7} /> :
              selectedStyle === 8 ? <ShaderBubble8 /> :
              selectedStyle === 9 ? <ShaderBubble9 /> :
+             selectedStyle === 10 ? <ShaderBubble10 /> :
+             selectedStyle === 11 ? <ShaderBubble11 /> :
              selectedStyle === 'type1' ? <Type1 /> :
              selectedStyle === 'type2' ? <Type2 /> :
              selectedStyle === 'type3' ? <Type3 /> :
@@ -263,7 +267,7 @@ export default function Home() {
         {/* 하단 버튼 - 버전에 따라 조건부 표시 */}
         {selectedVersion === 'ver1' && (
           <div className="version-switcher-bottom" role="navigation" aria-label="Style Switcher ver1">
-            {[1, 2, 22, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            {[1, 2, 22, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((num) => (
               <button
                 key={num}
                 className={`ver-button ${selectedStyle === num ? 'active' : ''} ${num === 6 || num === 7 ? 'red-button' : ''} ${num === 4 || num === 5 ? 'blue-button' : ''}`}
@@ -475,7 +479,7 @@ export default function Home() {
 
         .title-overlay {
           position: absolute;
-          top: 72px;
+          top: 45px; /* 72px에서 45px로 위로 올림 */
           left: 50%;
           transform: translateX(-50%);
           z-index: 5;
@@ -485,9 +489,10 @@ export default function Home() {
           color: #000000;
           font-family: 'Poppins', sans-serif;
           font-weight: 300;
-          font-size: 2.5rem;
+          font-size: 1.2rem; /* 크기 대폭 축소 */
           margin: 0;
           text-align: center;
+          letter-spacing: 0.02em; /* 가독성을 위한 자간 조정 */
         }
 
         .light-title {
@@ -528,19 +533,19 @@ export default function Home() {
           }
           
           .style-title {
-            font-size: 1.8rem;
+            font-size: 1rem; /* 모바일에서 더 작게 */
           }
           .title-overlay {
-            top: 68px;
+            top: 40px; /* 68px에서 40px로 위로 올림 */
           }
         }
 
         @media (max-width: 480px) {
           .style-title {
-            font-size: 1.5rem;
+            font-size: 0.9rem; /* 작은 모바일에서 더더욱 작게 */
           }
           .title-overlay {
-            top: 64px;
+            top: 35px; /* 64px에서 35px로 위로 올림 */
           }
         }
       `}</style>
