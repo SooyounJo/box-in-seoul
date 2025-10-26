@@ -102,7 +102,7 @@ export default function ShaderBubble8() {
       renderOrder={1000}
     >
       <sphereGeometry args={[radius, 64, 64]} />
-      <primitive object={material} attach="material" />
-    </mesh>
+        <primitive object={material} attach="material" />
+      </mesh>
   )
 }

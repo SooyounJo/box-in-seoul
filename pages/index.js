@@ -132,7 +132,7 @@ export default function Home() {
             gl={{ antialias: true, powerPreference: 'high-performance' }}
             camera={{ position: [0, 0, 6], fov: 50 }}
           >
-            <color attach="background" args={[selectedVersion === 'ver3' ? "#000000" : "#f2ecc6"]} />
+            <color attach="background" args={[selectedVersion === 'ver3' ? "#000000" : "#f4ffd8"]} />
             <ambientLight intensity={0.3} />
             <directionalLight position={[2, 3, 2]} intensity={0.5} />
             {selectedStyle === 1 ? <ShaderBubble /> : 
@@ -158,6 +158,7 @@ export default function Home() {
              <ShaderBubble />}
           </Canvas>
           
+          {/* 버튼별 제목 표시 */}
           {selectedVersion === 'ver1' && selectedStyle === 1 && (
             <div className="title-overlay">
               <h1 className="style-title">Main State</h1>
@@ -250,6 +251,7 @@ export default function Home() {
            )}
         </div>
 
+        {/* 하단 버튼 - 버전에 따라 조건부 표시 */}
         {selectedVersion === 'ver1' && (
           <div className="version-switcher-bottom" role="navigation" aria-label="Style Switcher ver1">
             {[1, 2, 22, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((num) => (

@@ -1,152 +1,126 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, useState } from 'react'
-import { Html } from '@react-three/drei'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-export default function ShaderBubble10() {
-  const { viewport, camera } = useThree()
+const AgenticBubble = ({ position }) => {
+  const { camera, viewport } = useThree()
   const v = viewport.getCurrentViewport(camera, [0, 0, 0])
   
-  const [params, setParams] = useState({
-    centerRange: 0.3,
-    midRange: 0.6,
-    outerRange: 0.9,
-    blendStrength: 0.5
-  });
-
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      centerRange: { value: params.centerRange },
-      midRange: { value: params.midRange },
-      outerRange: { value: params.outerRange },
-      blendStrength: { value: params.blendStrength }
+      time: { value: 0 },
+      lightDir: { value: new THREE.Vector3(0.2, 0.9, 0.3).normalize() },
+      ringDir: { value: new THREE.Vector3(0.08, 0.56, 0.86).normalize() }
     },
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vNormal;
+      varying vec3 vWorldPos;
       void main() {
         vUv = uv;
         vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
       }
     `,
     fragmentShader: `
-      uniform float centerRange;
-      uniform float midRange;
-      uniform float outerRange;
-      uniform float blendStrength;
+      precision highp float;
+      uniform float time;
+      uniform vec3 lightDir;
+      uniform vec3 ringDir;
       varying vec2 vUv;
       varying vec3 vNormal;
-
-      void main() {
-        vec2 p = vUv - 0.5;
-        float r = length(p);
-
-        vec3 centerPink = vec3(1.0, 0.75, 0.9);
-        vec3 midOrange = vec3(1.0, 0.85, 0.7);
-        vec3 outerPurple = vec3(0.9, 0.8, 1.0);
+      float hash(vec2 p){ p=fract(p*vec2(123.34,345.45)); p+=dot(p,p+34.345); return fract(p.x*p.y);}      
+      float n2(vec2 p){ vec2 i=floor(p); vec2 f=fract(p); float a=hash(i); float b=hash(i+vec2(1.0,0.0)); float c=hash(i+vec2(0.0,1.0)); float d=hash(i+vec2(1.0,1.0)); vec2 u=f*f*(3.0-2.0*f); return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);}      
+      float noise(vec2 p) { return sin(p.x) * cos(p.y) + sin(p.x*2.0)*cos(p.y*2.0)*0.5; }
+      float elasticWave(float x, float frequency, float amplitude){ float wave=sin(x*frequency)*amplitude; float decay=exp(-x*0.05); float bounce=sin(x*frequency*2.0)*amplitude*0.3; return (wave+bounce)*decay; }
+      float breathingMotion(float time){ float slow=sin(time*0.3)*0.15; float fast=sin(time*0.8)*0.08; float deep=sin(time*0.15)*0.25; return slow+fast+deep; }
+      float bumpMove(float c,float w,float f){ float d0=abs(f-(c-1.0)); float d1=abs(f-c); float d2=abs(f-(c+1.0)); float d=min(d0,min(d1,d2)); float aa=fwidth(f)*1.2; return smoothstep(w+aa,0.0+aa,d);}      
+      vec3 bandWeights(float f){ float width=0.25; float y=bumpMove(0.18,width,f); float p=bumpMove(0.52,width,f); float u=bumpMove(0.86,width,f); return vec3(y,p,u);}      
+      
+      float softBlur(float x, float strength) {
+        return exp(-x * x / strength);
+      }
+      
+      void main(){
+        vec3 N=normalize(vNormal); vec3 L=normalize(lightDir); vec2 p=vUv-0.5; float r=length(p);
+        float breathing=breathingMotion(time); r=r*(1.0+breathing*0.3);
+        float topness=clamp(dot(N,normalize(ringDir))*0.5+0.5,0.0,1.0);
+        vec3 peach=vec3(1.00,0.90,0.72); vec3 pink=vec3(1.00,0.70,0.90); vec3 purple=vec3(0.82,0.68,1.00);
+        vec3 base=mix(pink,peach,clamp(0.5+0.5*topness,0.0,1.0)); base=mix(base,purple,smoothstep(0.0,0.35,1.0-topness));
+        float loopSec=10.0; float loopT=mod(time,loopSec)/loopSec; float phase=-loopT;
+        float ripple1=noise(vUv*3.0+time*0.5)*0.05; float ripple2=noise(vUv*5.0+time*0.3)*0.025; float ripple3=noise(vUv*7.0+time*0.7)*0.015; float totalRipple=ripple1+ripple2+ripple3;
+        float elastic1=elasticWave(topness*2.0+time*0.4,3.0,0.08); float elastic2=elasticWave(topness*3.0+time*0.6,2.0,0.04); float totalElastic=elastic1+elastic2;
+        float blurAmount=0.01; float f1=topness*1.8+phase+totalRipple+totalElastic; float f2=topness*1.8+phase+blurAmount+totalRipple*0.8+totalElastic*0.6; float f3=topness*1.8+phase+(blurAmount*1.5)+totalRipple*0.6+totalElastic*0.4;
+        float perturb=0.01*n2(vUv*1.5+time*0.05); vec3 w1=bandWeights(f1+perturb); vec3 w2=bandWeights(f2+perturb*0.8); vec3 w3=bandWeights(f3+perturb*0.6);
+        float wobble1=0.997+0.001*n2(vUv*2.2+time*0.06); float wobble2=0.997+0.001*n2(vUv*2.2+time*0.06+1.7); float wobble3=0.997+0.001*n2(vUv*2.2+time*0.06+3.1); w1*=wobble1; w2*=wobble2; w3*=wobble3;
+        vec3 cY=vec3(0.80,0.40,0.70); vec3 cP=vec3(0.85,0.20,0.75); vec3 cU=vec3(0.90,0.50,0.80);
+        w1*=vec3(0.18,1.0,0.95); w2*=vec3(0.18,1.0,0.95); w3*=vec3(0.18,1.0,0.95);
+        vec3 flowColor1=cY*w1.x + cP*w1.y + cU*w1.z; vec3 flowColor2=cY*w2.x + cP*w2.y + cU*w2.z; vec3 flowColor3=cY*w3.x + cP*w3.y + cU*w3.z; vec3 flowColor=(0.5*flowColor1 + 0.35*flowColor2 + 0.15*flowColor3);
+        float mask1=clamp(w1.x+w1.y+w1.z,0.0,1.0); float mask2=clamp(w2.x+w2.y+w2.z,0.0,1.0); float mask3=clamp(w3.x+w3.y+w3.z,0.0,1.0); float flowMaskAvg=clamp((0.5*mask1 + 0.35*mask2 + 0.15*mask3),0.0,1.0);
+        vec3 lit=base; lit=mix(lit,flowColor,flowMaskAvg*0.4);
+        vec3 rippleColor=vec3(0.8,0.4,0.6)*totalRipple*0.2; vec3 elasticColor=vec3(0.8,0.3,0.7)*totalElastic*0.15; lit+=rippleColor+elasticColor;
         
-        float centerMix = smoothstep(0.0, centerRange * blendStrength, r);
-        float midMix = smoothstep(centerRange, midRange * blendStrength, r);
-        float outerMix = smoothstep(midRange, outerRange * blendStrength, r);
+        vec3 V=vec3(0.0,0.0,1.0); 
+        float fres=pow(1.0 - max(dot(N,V),0.0), 2.2);
+        vec3 rimGlow=vec3(0.8,0.3,0.7)*fres*0.4;
+        float softHalo=smoothstep(0.4, 0.1, r)*0.12;
+        vec3 glow=rimGlow + vec3(0.8,0.4,0.8)*softHalo;
+        lit+=glow;
         
-        vec3 color = mix(centerPink, midOrange, centerMix);
-        color = mix(color, outerPurple, midMix);
+        lit+=vec3(0.8,0.2,0.6)*(1.0-topness)*0.1;
+        vec3 gray=vec3(dot(lit,vec3(0.299,0.587,0.114)));
+        float loopPhase = 0.5 + 0.5 * sin(6.28318530718 * time / 7.0);
+        float sat = 1.0 + 0.85 * loopPhase;
+        lit = mix(gray, lit, sat);
+        float brightness = 1.0 + 0.14 * loopPhase;
+        lit *= brightness;
+        float contrast = 1.0 + 0.32 * loopPhase;
+        lit = (lit - 0.5) * contrast + 0.5;
+        lit=pow(lit,vec3(0.9)); lit*=1.05; lit=mix(lit,vec3(1.0),0.02); lit=clamp(lit,0.0,1.0);
         
-        vec3 N = normalize(vNormal);
-        vec3 V = vec3(0.0, 0.0, 1.0);
-        float fres = pow(1.0 - max(dot(N, V), 0.0), 2.2);
+        float edgeBase = smoothstep(0.56, 0.32, r);
+        float edgeGlow = softBlur(r - 0.4, 0.15);
+        float edgeFeather = edgeBase * (1.0 + edgeGlow * 0.3);
         
-        float edgeFeather = smoothstep(0.52, 0.36, r);
         float alpha = 0.88 * edgeFeather + fres * 0.15;
+        alpha = alpha * (1.0 - softBlur(r - 0.45, 0.2) * 0.3);
         alpha = clamp(alpha, 0.0, 0.95);
         
-        gl_FragColor = vec4(color, alpha);
+        gl_FragColor=vec4(lit,alpha);
       }
     `,
     transparent: true,
-    depthWrite: false,
-    depthTest: false,
-  }), []);
+  }), [])
 
-  const meshRef = useRef();
-  const radius = Math.min(v.width, v.height) * 0.33;
+  const meshRef = useRef()
+  
+  // 크기 유지
+  const radius = 1.9
 
-  useFrame(() => {
-    if (meshRef.current) {
-      material.uniforms.centerRange.value = params.centerRange;
-      material.uniforms.midRange.value = params.midRange;
-      material.uniforms.outerRange.value = params.outerRange;
-      material.uniforms.blendStrength.value = params.blendStrength;
-    }
-  });
-
-  const ParamSlider = ({ label, value, onChange }) => (
-    <div style={{ marginBottom: '2px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
-        <span>{label}</span>
-        <span>{value.toFixed(2)}</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        value={value}
-        onChange={onChange}
-        style={{ width: '100%', height: '6px' }}
-      />
-    </div>
-  );
+  useFrame((state, delta) => {
+    material.uniforms.time.value += delta
+  })
 
   return (
-    <group renderOrder={1000}>
-      <mesh ref={meshRef} position={[0, 0, 0]}>
-        <sphereGeometry args={[radius, 64, 64]} />
-        <primitive object={material} attach="material" />
-      </mesh>
-      
-      <Html
-        wrapperClass="shader-controls"
-        style={{
-          width: '80px',
-          position: 'absolute',
-          right: '10px',
-          top: '10px',
-          background: 'rgba(60, 60, 60, 0.8)',
-          padding: '4px',
-          borderRadius: '4px',
-          fontSize: '7px',
-          fontFamily: 'monospace',
-          pointerEvents: 'auto',
-          transform: 'scale(0.9)',
-          transformOrigin: 'top right',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}
-        distanceFactor={10}
-        position={[v.width / 2 - 0.1, v.height / 2 - 0.1, 0]}
-      >
-        <ParamSlider
-          label="Center"
-          value={params.centerRange}
-          onChange={(e) => setParams({...params, centerRange: parseFloat(e.target.value)})}
-        />
-        <ParamSlider
-          label="Mid"
-          value={params.midRange}
-          onChange={(e) => setParams({...params, midRange: parseFloat(e.target.value)})}
-        />
-        <ParamSlider
-          label="Outer"
-          value={params.outerRange}
-          onChange={(e) => setParams({...params, outerRange: parseFloat(e.target.value)})}
-        />
-        <ParamSlider
-          label="Blend"
-          value={params.blendStrength}
-          onChange={(e) => setParams({...params, blendStrength: parseFloat(e.target.value)})}
-        />
-      </Html>
+    <mesh ref={meshRef} position={position}>
+      <sphereGeometry args={[radius, 256, 256]} />
+      <primitive object={material} attach="material" />
+    </mesh>
+  )
+}
+
+export default function ShaderBubble10() {
+  const { camera, viewport } = useThree()
+  
+  // 간격을 아주아주 미세하게 조정
+  const spacing = 1.89
+
+  return (
+    <group position={[0, 0, 1]} renderOrder={1000}>
+      <AgenticBubble position={[0, spacing, 0]} />
+      <AgenticBubble position={[0, -spacing, 0]} />
     </group>
-  );
+  )
 }
