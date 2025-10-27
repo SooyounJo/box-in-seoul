@@ -6,7 +6,7 @@ const BlobMaterial = ({ color, centerColor }) => {
   return new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0 },
-      spread: { value: 0 }  // 퍼짐 정도를 전달하기 위한 uniform 추가
+      spread: { value: 0 }
     },
     vertexShader: `
       varying vec2 vUv;
@@ -32,31 +32,40 @@ const BlobMaterial = ({ color, centerColor }) => {
         return exp(-x * x / strength);
       }
 
+      vec3 saturate(vec3 color, float amount) {
+        float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+        return mix(vec3(luminance), color, amount);
+      }
+
       void main() {
         vec2 p = vUv - 0.5;
         float r = length(p);
         
-        // 프레넬 효과
         vec3 viewDir = normalize(vViewPosition);
-        float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 2.0) * 0.2;
+        float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 2.0) * 0.35;
         
-        // spread 값에 따라 개별 색상과 중앙 색상을 블렌딩
-        vec3 individualColor = ${color};
-        vec3 mergedColor = ${centerColor};  // 1.js의 핑크 컬러
-        vec3 color = mix(mergedColor, individualColor, spread);
+        vec3 individualColor = saturate(${color}, 2.5);
+        vec3 mergedColor = saturate(${centerColor}, 2.0);
         
-        // 컬러 보정
-        color = pow(color, vec3(0.85));
-        color += vec3(0.1) * fresnel;
+        float blendFactor = smoothstep(0.0, 1.0, spread);
+        vec3 color = mix(mergedColor, individualColor, blendFactor);
         
-        // spread에 따라 블러 강도 조절
-        float blurStrength = mix(0.4, 0.2, spread);  // 중앙에 모일 때 더 블러리하게
-        float edgeBlur = softBlur(r - 0.35, blurStrength);
+        float glow = exp(-r * 2.0) * 0.6;
+        vec3 glowColor = saturate(individualColor, 1.8);
+        color += glowColor * glow * (1.0 - spread * 0.5);
         
-        // 알파값 계산
-        float alpha = smoothstep(0.5, 0.2, r);
-        alpha *= (1.0 - edgeBlur * 0.3);
-        alpha = clamp(alpha, 0.0, 0.95);
+        color = saturate(color, 1.5);
+        
+        color += vec3(fresnel * 0.15);
+        
+        float baseBlur = mix(0.6, 0.3, spread);
+        float edgeBlur = softBlur(r - 0.35, baseBlur);
+        float additionalBlur = softBlur(r - 0.4, baseBlur * 1.5);
+        
+        float alpha = smoothstep(0.52, 0.15, r);
+        alpha *= (1.0 - edgeBlur * 0.4);
+        alpha *= (1.0 - additionalBlur * 0.3);
+        alpha = clamp(alpha, 0.0, 0.92);
         
         gl_FragColor = vec4(color, alpha);
       }
@@ -92,16 +101,17 @@ export default function ShaderBubble11() {
   const groupRef = useRef();
   const [time, setTime] = useState(0);
 
-  const centerColor = 'vec3(1.0, 0.7, 0.9)';  // 1.js의 핑크 컬러
+  const centerColor = 'vec3(1.0, 0.5, 0.8)';
   const blobColors = [
-    'vec3(0.95, 0.4, 0.6)',   // 핑크
-    'vec3(1.0, 0.7, 0.4)',    // 오렌지
-    'vec3(0.75, 0.15, 0.45)', // 마젠타
-    'vec3(0.2, 0.75, 0.45)',  // 민트
-    'vec3(0.2, 0.4, 0.85)'    // 블루
+    'vec3(0.95, 0.15, 0.35)',
+    'vec3(0.95, 0.45, 0.15)',
+    'vec3(0.95, 0.1, 0.4)',
+    'vec3(0.15, 0.95, 0.35)',
+    'vec3(0.15, 0.35, 0.95)'
   ];
 
-  const blobSizes = [0.15, 0.17, 0.14, 0.16, 0.15].map(
+  // 블롭 크기 조정 (약간 작게)
+  const blobSizes = [0.12, 0.14, 0.11, 0.13, 0.12].map(
     size => size * Math.min(viewport.width, viewport.height) * 0.33
   );
 
@@ -111,8 +121,9 @@ export default function ShaderBubble11() {
 
   const getPositions = () => {
     const t = time * 0.5;
-    const spread = Math.sin(t) * 0.5 + 0.5;  // 0 ~ 1
-    const maxSpread = 0.5;
+    const spread = Math.sin(t) * 0.5 + 0.5;
+    // 최대 퍼짐 범위도 약간 줄임
+    const maxSpread = 0.45;
     
     return blobColors.map((_, i) => {
       const angle = (i / blobColors.length) * Math.PI * 2 + t;
@@ -123,7 +134,7 @@ export default function ShaderBubble11() {
           Math.sin(angle) * distance,
           0
         ],
-        spread: spread  // 퍼짐 정도를 각 블롭에 전달
+        spread: spread
       };
     });
   };

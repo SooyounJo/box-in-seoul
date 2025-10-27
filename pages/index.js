@@ -76,7 +76,7 @@ export default function Home() {
     if (version === 'ver1') {
       setSelectedStyle(1)
     } else if (version === 'ver2') {
-      setSelectedStyle('type1')
+      setSelectedStyle('type2')  // type1 대신 type2로 변경
     } else if (version === 'ver3') {
       setSelectedStyle('lg1')
     }

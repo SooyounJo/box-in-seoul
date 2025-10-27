@@ -120,7 +120,7 @@ export default function ShaderBubble8() {
       renderOrder={1000}
     >
       <planeGeometry args={[radius * 2, radius * 2]} />
-      <primitive object={material} attach="material" />
-    </mesh>
+        <primitive object={material} attach="material" />
+      </mesh>
   )
 }
